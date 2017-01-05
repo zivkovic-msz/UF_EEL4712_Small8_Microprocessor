@@ -1,0 +1,602 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity datapath_deliv3 is 
+	generic ( 
+		width : positive := 8);
+	port (
+		clk : in std_logic;
+		rst : in std_logic;
+		tri_enable : in std_logic_vector(13 downto 0);
+		-- status_register : out std_logic_vector(3 downto 0);
+		overflow_en, signed_en, carry_en, zero_en : in std_logic;
+		external_databus : inout std_logic_vector(width-1 downto 0);
+		IR_stream : out std_logic_vector(width-1 downto 0);
+		ALU_sel : in std_logic_vector(3 downto 0); --For ALU
+		ADDR_sel,PC_ADD_sel,PC_LD_MUX_sel,X_LD_MUX_sel,SP_LD_MUX_sel : in std_logic_vector(1 downto 0); --for address bus
+		ext_address_bus : out std_logic_vector(15 downto 0);
+		ALU_en, ADDRL_en, ADDRH_en, IR_en,
+		PCH_en, PCL_en, D_en, A_en, SPH_en, SPL_en, XH_en,
+		XL_en, BTL_en, BTH_en, B_en : in std_logic;
+		status_carry, status_overflow, status_signed, status_zero : out std_logic_vector(0 downto 0)
+		);
+end datapath_deliv3;
+
+architecture STR of datapath_deliv3 is
+
+signal internal_databus : std_logic_vector(width-1 downto 0);
+signal external_databus_sig : std_logic_vector(width-1 downto 0);
+-- signal external_data_bus_sig_out : std_logic_vector(width-1 downto 0);
+signal ALU_sig : std_logic_vector(width-1 downto 0);
+signal ALU_out_sig : std_logic_vector(width-1 downto 0);
+signal ADDRL_sig : std_logic_vector(width-1 downto 0);
+signal ADDRH_sig : std_logic_vector(width-1 downto 0);
+-- signal ADDR_MUX_IN : std_logic_vector(15 downto 0);
+signal PCH_sig : std_logic_vector(width-1 downto 0);
+signal PCL_sig : std_logic_vector(width-1 downto 0);
+signal PC_ADD_RESULT : std_logic_vector(15 downto 0);
+signal X_ADD_RESULT : std_logic_vector(15 downto 0);
+signal X_SUBTRACT_RESULT : std_logic_vector(15 downto 0);
+signal SP_ADD_RESULT : std_logic_vector(15 downto 0);
+signal SP_SUBTRACT_RESULT : std_logic_vector(15 downto 0);
+signal X_PLUS_B_RESULT : std_logic_vector(15 downto 0);
+signal PC_LD_sig : std_logic_vector(15 downto 0);
+signal X_LD_sig : std_logic_vector(15 downto 0);
+signal SP_LD_sig : std_logic_vector(15 downto 0);
+signal PC_ADD_MUX : std_logic_vector(15 downto 0);
+signal D_sig : std_logic_vector(width-1 downto 0);
+signal A_sig : std_logic_vector(width-1 downto 0);
+signal SPH_sig : std_logic_vector(width-1 downto 0);
+signal SPL_sig : std_logic_vector(width-1 downto 0);
+signal XH_sig : std_logic_vector(width-1 downto 0);
+signal XL_sig : std_logic_vector(width-1 downto 0);
+signal B_data : std_logic_vector(width-1 downto 0);
+signal BTL_sig : std_logic_vector(width-1 downto 0);
+signal BTH_sig : std_logic_vector(width-1 downto 0);
+signal carry_sig, overflow_sig, signed_sig, zero_sig : std_logic_vector(0 downto 0);
+-- signal status_carry, status_overflow, status_signed, status_zero : std_logic;
+signal status_carry_sig : std_logic_vector(0 downto 0);
+signal STACK_CALL_PC_ADD_SIG : std_logic_vector(15 downto 0);
+signal STACK_CALL_PC_ADD_MUX_OUT : std_logic_vector(7 downto 0);
+
+begin
+status_carry <= status_carry_sig;
+	-- status_register(0) <= status_carry;
+	-- status_register(1) <= status_overflow;
+	-- status_register(2) <= status_signed;
+	-- status_register(3) <= status_zero;
+	
+	U_BRANCH_TARGET_L : entity work.reg
+	generic map (width => width)
+	port map (
+		clk => clk,
+		rst => rst,
+		en => BTL_en,
+		input => internal_databus,
+		output => BTL_sig
+	);
+	
+	U_BRANCH_TARGET_L_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => BTL_sig,
+			en	=> tri_enable(0),
+			output => internal_databus
+			);
+	
+	U_BRANCH_TARGET_H : entity work.reg
+	generic map (width => width)
+	port map (
+		clk => clk,
+		rst => rst,
+		en => BTH_en,
+		input => internal_databus,
+		output => BTH_sig
+	);
+	
+	U_BRANCH_TARGET_H_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => BTH_sig,
+			en	=> tri_enable(1),
+			output => internal_databus
+			);
+	
+	U_ADDRESS_MUX : entity work.mux4x1
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8)	=> ADDRH_sig,
+			input1(7 downto 0) => ADDRL_sig,
+			input2(15 downto 8)	=> PC_ADD_RESULT(15 downto 8),
+			input2(7 downto 0) => PC_ADD_RESULT(7 downto 0),
+			input3(15 downto 8)	=> SPH_sig,
+			input3(7 downto 0) => SPL_sig,
+			input4 => X_PLUS_B_RESULT,
+			-- input4(15 downto 8)	=> XH_sig,
+			-- input4(7 downto 0) => XL_sig,
+			sel		=> ADDR_sel,
+			output	=> ext_address_bus
+		);
+	
+	U_EXT_DATA_BUS_IN : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => external_databus,
+			en	=> tri_enable(10),
+			output => internal_databus
+			);
+	
+	U_EXT_DATA_BUS_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => internal_databus,
+			en	=> tri_enable(11),
+			output => external_databus
+			);
+	
+	U_ALU : entity work.ALU
+		generic map (width => width)
+		port map (
+			input_A => A_sig,
+			input_D => D_sig,
+			sel		=> ALU_sel,
+			output => ALU_sig,
+			carry_in => status_carry_sig,
+			carry_flag => carry_sig,
+			overflow_flag => overflow_sig,
+			signed_flag => signed_sig,
+			zero_flag => zero_sig
+		);
+	
+	U_ALU_REG : entity work.reg
+		generic map (width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => ALU_en,
+			input => ALU_sig,
+			output => ALU_out_sig
+		);
+	
+	U_ALU_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => ALU_out_sig,
+			en => tri_enable(12),
+			output => internal_databus
+			);
+			
+	U_STATUS_REG_CARRY : entity work.reg
+		generic map (width => 1)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => carry_en,
+			input => carry_sig,
+			output => status_carry_sig
+		);
+		
+	U_STATUS_REG_OVERFLOW : entity work.reg
+		generic map (width => 1)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => overflow_en,
+			input => overflow_sig,
+			output => status_overflow
+		);
+		
+	U_STATUS_REG_SIGNED : entity work.reg
+		generic map (width => 1)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => signed_en,
+			input => signed_sig,
+			output => status_signed
+		);
+		
+	U_STATUS_REG_ZERO : entity work.reg
+		generic map (width => 1)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => zero_en,
+			input => zero_sig,
+			output => status_zero
+		);
+		
+	-- U_STATUS_REG : entity work.reg 
+		-- generic map (
+			-- width => 4)
+		-- port map (
+			-- clk => clk,
+			-- rst => rst,
+			-- en => STATUS_en,
+			-- input(0) => carry_sig,
+			-- input(1) => overflow_sig,
+			-- input(2) => signed_sig,
+			-- input(3) => zero_sig,
+			-- output(0) => status_carry,
+			-- output(1) => status_overflow,
+			-- output(2) => status_signed,
+			-- output(3) => status_zero
+			-- );
+	
+	U_ADDRL : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => ADDRL_en,
+			input => internal_databus,
+			output => ADDRL_sig
+			);
+				
+	-- U_ADDRL_OUT : entity work.tristate
+		-- generic map (
+			-- width => width)
+		-- port map (
+			-- input => ADDRL_sig,
+			-- en	=> tri_enable(0),
+			-- output => ext_address_bus(7 downto 0)
+			-- );
+	
+	U_ADDRH : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => ADDRH_en,
+			input => internal_databus,
+			output => ADDRH_sig 
+			);
+			
+	-- U_ADDRH_OUT : entity work.tristate
+		-- generic map (
+			-- width => width)
+		-- port map (
+			-- input => ADDRH_sig,
+			-- en	=> tri_enable(1),
+			-- output => ext_address_bus(15 downto 8)
+			-- );
+	
+	U_IR	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => IR_en,
+			input => internal_databus,
+			output => IR_stream
+			);
+	
+	U_PCH	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => PCH_en,
+			input => PC_LD_sig(15 downto 8),
+			output => PCH_sig
+			);
+
+	U_PCH_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => PC_ADD_RESULT(15 downto 8),
+			en	=> tri_enable(2),
+			output => internal_databus
+			);
+	
+	U_PCL	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => PCL_en,
+			input => PC_LD_sig(7 downto 0),
+			output => PCL_sig
+			);
+			
+	U_PCL_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => PC_ADD_RESULT(7 downto 0),
+			en	=> tri_enable(3),
+			output => internal_databus
+			);
+			
+	U_PC_ADD_MUX : entity work.mux4x1
+		generic map (
+			width => 16)
+		port map(
+			input1	=> std_logic_vector(to_unsigned(0,16)),
+			input2	=> std_logic_vector(to_unsigned(1,16)),
+			input3	=> std_logic_vector(to_unsigned(2,16)),
+			input4	=> std_logic_vector(to_unsigned(3,16)),
+			sel		=> PC_ADD_sel,
+			output	=> PC_ADD_MUX
+		);
+	
+	U_PC_ADDER : entity work.add
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => PCH_sig,
+			input1(7 downto 0) => PCL_sig,
+			input2 => PC_ADD_MUX,
+			output => PC_ADD_RESULT
+			);
+	
+	U_PC_LD_MUX : entity work.mux4x1
+		generic map (
+			width => 16)
+		port map(
+			input1	=> PC_ADD_RESULT,
+			input2(15 downto 8)	=> internal_databus,
+			input2(7 downto 0) => std_logic_vector(to_unsigned(0,8)),
+			input3(15 downto 8)	=> std_logic_vector(to_unsigned(0,8)),
+			input3(7 downto 0) => internal_databus,
+			input4(15 downto 8)	=> BTH_sig,
+			input4(7 downto 0) => BTL_sig,
+			sel		=> PC_LD_MUX_sel,
+			output	=> PC_LD_sig
+		);
+	
+	U_D	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => D_en,
+			input => internal_databus,
+			output => D_sig
+			);
+			
+	U_D_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => D_sig,
+			en	=> tri_enable(4),
+			output => internal_databus
+			);
+	
+	U_A	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => A_en,
+			input => internal_databus,
+			output => A_sig
+			);
+			
+	U_A_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => A_sig,
+			en	=> tri_enable(5),
+			output => internal_databus
+			);
+	
+	U_SPH	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => SPH_en,
+			input => SP_LD_sig(15 downto 8),
+			output => SPH_sig
+			);
+			
+	U_SPH_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => SPH_sig,
+			en	=> tri_enable(6),
+			output => internal_databus
+			);
+	
+	U_SPL	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => SPL_en,
+			input => SP_LD_sig(7 downto 0),
+			output => SPL_sig
+			);
+			
+	U_SPL_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => SPL_sig,
+			en	=> tri_enable(7),
+			output => internal_databus
+			);
+			
+	U_SP_ADDER : entity work.add
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => SPH_sig,
+			input1(7 downto 0) => SPL_sig,
+			input2 => std_logic_vector(to_unsigned(1,16)),
+			output => SP_ADD_RESULT
+			);
+			
+	U_SP_SUBTRACT : entity work.subtract
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => SPH_sig,
+			input1(7 downto 0) => SPL_sig,
+			input2 => std_logic_vector(to_unsigned(1,16)),
+			output => SP_SUBTRACT_RESULT
+			);
+			
+	U_SP_LD_MUX : entity work.mux4x1
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8)	=> internal_databus,
+			input1(7 downto 0) => std_logic_vector(to_unsigned(0,8)),
+			input2(15 downto 8)	=> std_logic_vector(to_unsigned(0,8)),
+			input2(7 downto 0) => internal_databus,
+			input3 => SP_ADD_RESULT,
+			input4 => SP_SUBTRACT_RESULT,
+			sel		=> SP_LD_MUX_sel,
+			output	=> SP_LD_sig
+		);
+	
+	U_XH	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => XH_en,
+			input => X_LD_sig(15 downto 8),
+			output => XH_sig
+			);
+			
+	U_XH_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => XH_sig,
+			en	=> tri_enable(8),
+			output => internal_databus
+			);
+	
+	U_XL	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => XL_en,
+			input => X_LD_sig(7 downto 0),
+			output => XL_sig
+			);
+			
+	U_XL_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => XL_sig,
+			en	=> tri_enable(9),
+			output => internal_databus
+			);
+
+	U_B	 : entity work.reg
+		generic map (
+			width => width)
+		port map (
+			clk => clk,
+			rst => rst,
+			en => B_en,
+			input => internal_databus,
+			output => B_data
+			);
+
+	U_X_ADDER : entity work.add
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => XH_sig,
+			input1(7 downto 0) => XL_sig,
+			input2 => std_logic_vector(to_unsigned(1,16)),
+			output => X_ADD_RESULT
+			);
+			
+	U_X_SUBTRACT : entity work.subtract
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => XH_sig,
+			input1(7 downto 0) => XL_sig,
+			input2 => std_logic_vector(to_unsigned(1,16)),
+			output => X_SUBTRACT_RESULT
+			);
+			
+	U_X_LD_MUX : entity work.mux4x1
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8)	=> internal_databus,
+			input1(7 downto 0) => std_logic_vector(to_unsigned(0,8)),
+			input2(15 downto 8)	=> std_logic_vector(to_unsigned(0,8)),
+			input2(7 downto 0) => internal_databus,
+			input3 => X_ADD_RESULT,
+			input4 => X_SUBTRACT_RESULT,
+			sel		=> X_LD_MUX_sel,
+			output	=> X_LD_sig
+		);
+		
+	U_X_PLUS_B_ADDER : entity work.add
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => XH_sig,
+			input1(7 downto 0) => XL_sig,
+			input2(15 downto 8) => std_logic_vector(to_unsigned(0,8)),
+			input2(7 downto 0) => B_data,
+			output => X_PLUS_B_RESULT
+			);
+			
+	U_STACK_CALL_PC_ADDER : entity work.add
+		generic map (
+			width => 16)
+		port map(
+			input1(15 downto 8) => PCH_sig,
+			input1(7 downto 0) => PCL_sig,
+			input2 => std_logic_vector(to_unsigned(2,16)),
+			output => STACK_CALL_PC_ADD_SIG
+			);
+	
+	U_STACK_CALL_PC_ADD_MUX : entity work.mux2x1
+		generic map(
+			width => 8)
+		port map(
+			input1 => STACK_CALL_PC_ADD_SIG(15 downto 8),
+			input2 => STACK_CALL_PC_ADD_SIG(7 downto 0),
+			output => STACK_CALL_PC_ADD_MUX_OUT,
+			sel => STACL_CALL_PC_MUX_SEL
+			);
+			
+	U_STACK_CALL_PC_ADD_OUT : entity work.tristate
+		generic map (
+			width => width)
+		port map (
+			input => STACK_CALL_PC_ADD_MUX_OUT,
+			en	=> tri_enable(13),
+			output => internal_databus
+			);
+		
+end STR;
+			
+	

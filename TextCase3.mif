@@ -1,0 +1,99 @@
+Depth = 256;
+Width = 8;
+Address_radix = hex;
+Data_radix = hex;
+% Program RAM Data %
+Content
+  Begin
+
+% LDAI	$0A %  
+0000 : 84;
+0001 : 0A;  
+
+% STAA	COUNT %
+0002 : F6;
+0003 : 2D;
+0004 : 00;
+
+% LDXI	BUFF %
+0005 : 8A;
+0006 : 23;
+0007 : 00;
+
+% LDAI	$00 %
+0008 : 84;
+0009 : 00;
+
+% STAR	D %
+000A : F1;
+
+% CLRC %
+000B : F9;
+
+% AGAIN: (label) %
+% LDAA	0,X %
+000C : BC;
+000D : 00;
+
+% ADCR	D %
+000E : 01;
+
+% STAR	D %
+000F : F1;
+
+% LDAA	COUNT %
+0010 : 88;
+0011 : 2D;
+0012 : 00;
+
+% DECA %
+0013 : FB;
+
+% STAA	COUNT %
+0014 : F6;
+0015 : 2D;
+0016 : 00;
+
+% INCX %
+0017 : FC;
+
+% BNEA	AGAIN % 
+0018 : B4;
+0019 : 0C;
+001A : 00;
+
+% LDAD %
+001B : 81;
+
+% STAA	OUTPORT0 %
+001C : F6;
+001D : FE;
+001E : FF;
+
+% INFINITE_LOOP %
+% CLRC %
+001F : F9;
+
+% BCCA	INFINITE_LOOP %
+0020 : B0;
+0021 : 1F;
+0022 : 00;
+
+% Data Area %
+% BUFF %
+0023 : 01;
+0024 : 02;
+0025 : 03;
+0026 : 04;
+0027 : 05;
+0028 : 06;
+0029 : 07;
+002A : 08;
+002B : 09;
+002C : 0A;
+
+% COUNT %
+002D : 00;
+[002E..00FF] : 00;
+End;
+

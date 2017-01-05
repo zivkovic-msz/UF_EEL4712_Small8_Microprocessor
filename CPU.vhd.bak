@@ -1,0 +1,141 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity CPU is
+	generic(
+		width : positive := 8);
+	port(
+	clk,rst : in std_logic;
+	address_bus : out std_logic_vector(15 downto 0);
+	data_bus : inout std_logic_vector(7 downto 0);
+	write_en,read_en : out std_logic
+	);
+end CPU;
+
+architecture str of CPU is
+
+signal tri_enable_cpu : std_logic_vector(12 downto 0);
+--signal status_register_cpu : std_logic_vector(3 downto 0);
+signal IR_stream_cpu : std_logic_vector(7 downto 0);
+signal ALU_sel_cpu : std_logic_vector(3 downto 0);
+signal ADDR_sel_cpu : std_logic_vector(1 downto 0);
+signal PC_ADD_sel_cpu : std_logic_vector(1 downto 0);
+signal PC_LD_MUX_sel_cpu : std_logic_vector(1 downto 0);
+signal ALU_en_cpu : std_logic;
+signal STATUS_en_cpu : std_logic;
+signal ADDRL_en_cpu : std_logic;
+signal ADDRH_en_cpu : std_logic;
+signal IR_en_cpu : std_logic;
+signal PCH_en_cpu : std_logic;
+signal PCL_en_cpu : std_logic;
+signal D_en_cpu : std_logic;
+signal A_en_cpu : std_logic;
+signal SPH_en_cpu : std_logic;
+signal SPL_en_cpu : std_logic;
+signal XH_en_cpu : std_logic;
+signal XL_en_cpu :std_logic;
+signal BTL_en_cpu :std_logic;
+signal BTH_en_cpu :std_logic;
+signal carry_en_cpu :std_logic;
+signal overflow_en_cpu :std_logic;
+signal signed_en_cpu :std_logic;
+signal zero_en_cpu :std_logic;
+signal status_carry_cpu : std_logic_vector(0 downto 0);
+signal status_overflow_cpu : std_logic_vector(0 downto 0);
+signal status_signed_cpu : std_logic_vector(0 downto 0);
+signal status_zero_cpu : std_logic_vector(0 downto 0);
+signal B_en_cpu : std_logic;
+signal X_LD_MUX_sel_cpu : std_logic_vector(1 downto 0);
+signal SP_LD_MUX_sel_cpu : std_logic_vector(1 downto 0);
+
+
+begin
+
+U_datapath : entity work.datapath_deliv3
+	generic map (
+		width => width)
+	port map(
+		clk => clk,
+		rst => rst,
+		tri_enable => tri_enable_cpu,
+--		status_register => status_register_cpu,
+		external_databus => data_bus,
+		IR_stream => IR_stream_cpu,
+		ALU_sel => ALU_sel_cpu,
+		ADDR_sel => ADDR_sel_cpu,
+		PC_ADD_sel => PC_ADD_sel_cpu,
+		PC_LD_MUX_sel => PC_LD_MUX_sel_cpu,
+		ext_address_bus => address_bus,
+		ALU_en => ALU_en_cpu,
+--		STATUS_en => STATUS_en_cpu,
+		ADDRL_en => ADDRL_en_cpu,
+		ADDRH_en => ADDRH_en_cpu,
+		IR_en => IR_en_cpu,
+		PCH_en => PCH_en_cpu,
+		PCL_en => PCL_en_cpu,
+		D_en => D_en_cpu,
+		A_en => A_en_cpu,
+		SPH_en => SPH_en_cpu,
+		SPL_en => SPL_en_cpu,
+		XH_en => XH_en_cpu,
+		XL_en => XL_en_cpu,
+		BTL_en => BTL_en_cpu,
+		BTH_en => BTH_en_cpu,
+		carry_en => carry_en_cpu,
+		overflow_en => overflow_en_cpu,
+		signed_en => signed_en_cpu,
+		zero_en => zero_en_cpu,
+		status_carry => status_carry_cpu,
+		status_overflow => status_overflow_cpu,
+		status_signed => status_signed_cpu,
+		status_zero => status_zero_cpu,
+		X_LD_MUX_sel => X_LD_MUX_sel_cpu,
+		B_en => B_en_cpu,
+		SP_LD_MUX_sel => SP_LD_MUX_sel_cpu_cpu
+		
+	);
+
+U_controller : entity work.controller
+	port map(
+		clk => clk,
+		rst => rst,
+		tri_enable => tri_enable_cpu,
+--		status_register => status_register_cpu,
+		opcode => IR_stream_cpu,
+		ALU_sel => ALU_sel_cpu,
+		ADDR_sel => ADDR_sel_cpu,
+		PC_ADD_sel => PC_ADD_sel_cpu,
+		PC_LD_MUX_sel => PC_LD_MUX_sel_cpu,
+		write_en => write_en,
+		read_en => read_en,
+		ALU_en => ALU_en_cpu,
+		STATUS_en => STATUS_en_cpu,  
+		ADDRL_en => ADDRL_en_cpu,
+		ADDRH_en => ADDRH_en_cpu, 
+		IR_en => IR_en_cpu,
+		PCH_en => PCH_en_cpu,
+		PCL_en => PCL_en_cpu,
+		D_en => D_en_cpu,
+		A_en => A_en_cpu,
+		SPH_en => SPH_en_cpu,
+		SPL_en => SPL_en_cpu,
+		XH_en => XH_en_cpu,
+		XL_en => XL_en_cpu,
+		BTL_en => BTL_en_cpu,
+		BTH_en => BTH_en_cpu,
+		carry_en => carry_en_cpu,
+		overflow_en => overflow_en_cpu,
+		signed_en => signed_en_cpu,
+		zero_en => zero_en_cpu,
+		status_carry => status_carry_cpu,
+		status_overflow => status_overflow_cpu,
+		status_signed => status_signed_cpu,
+		status_zero => status_zero_cpu,
+		X_LD_MUX_sel => X_LD_MUX_sel_cpu,
+		B_en => B_en_cpu,
+		SP_LD_MUX_sel => SP_LD_MUX_sel_cpu_cpu
+	);
+		
+
+end STR;

@@ -1,0 +1,67 @@
+Depth = 256;
+Width = 8;
+Address_radix = hex;
+Data_radix = hex;
+% Program RAM Data %
+Content
+  Begin
+  
+% LDSI 0400 %
+0000 : 89;
+0001 : 00;
+0002 : 04;
+
+% CALL %
+0003 : C8;
+  
+%	LDAA	VALUE1 %
+0020 : 88;
+0021 : 14;
+0022 : 00;
+
+% STAR	D %
+0023 : F1;
+
+% LDAA	VALUE2 %
+0024 : 88;
+0025 : 15;
+0026 : 00;
+
+% ANDR	D %
+0027 : 21;
+
+% BEQA	THERE %
+0028 : B2;
+0029 : 0C;
+002A : 00;
+
+% ADCR	D Should skip this %
+002B : 01;
+
+% THERE: %
+% ADCR	D %
+002C : 01;
+
+% STAA	OUTPORT0 %
+002D : F6;
+002E : FE;
+002F : FF;
+
+% RET %
+0030 : C0;
+
+% INFINITE_LOOP: %
+% CLRC %
+0004 : F9;
+
+% BCCA	INFINITE_LOOP %
+0005 : B0;
+0006 : 10;
+0007 : 00;
+
+% Data Area %
+0008 : 55;
+0009 : AA;
+--[0010..00FF] : 00;
+End;
+
